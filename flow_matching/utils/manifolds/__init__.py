@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from .manifold import Composite, Euclidean, Manifold
+from .so3 import SO3
 from .sphere import Sphere
 from .torus import FlatTorus
 from .utils import geodesic
@@ -15,5 +16,6 @@ __all__ = [
     "Composite",
     "Sphere",
     "FlatTorus",
+    "SO3",
     "geodesic",
 ]

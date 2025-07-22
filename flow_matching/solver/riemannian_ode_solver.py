@@ -217,10 +217,10 @@ def _midpoint_step(
 
     half_dt = 0.5 * dt
     vt = velocity_fn(xt, t0)
-    x_mid = xt + half_dt * vt
+    x_mid = manifold.expmap(xt, half_dt * vt)
     x_mid = projx_fn(x_mid)
 
-    xt = xt + dt * velocity_fn(x_mid, t0 + half_dt)
+    xt = manifold.expmap(xt, dt * velocity_fn(x_mid, t0 + half_dt))
 
     return projx_fn(xt)
 

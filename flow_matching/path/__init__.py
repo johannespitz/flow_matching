@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from .affine import AffineProbPath, CondOTProbPath
-from .geodesic import CompositeGeodesicProbPath, GeodesicProbPath
+from .geodesic import CompositeGeodesicProbPath, GeodesicProbPath, SO3ProbPath
 from .mixture import MixtureDiscreteProbPath
 from .path import ProbPath
 from .path_sample import DiscretePathSample, PathSample
@@ -18,6 +18,7 @@ __all__ = [
     "MixtureDiscreteProbPath",
     "GeodesicProbPath",
     "CompositeGeodesicProbPath",
+    "SO3ProbPath",
     "PathSample",
     "DiscretePathSample",
 ]

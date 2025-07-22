@@ -77,14 +77,14 @@ class SO3(Manifold):
 
     def expmap(self, x: Tensor, u: Tensor) -> Tensor:
         rot = delta2rotMat(u, eps=self.EPS[x.dtype])
-        result = x @ rot
-        return result
+        result = x.unflatten(-1, (3, 3)) @ rot
+        return result.flatten(-2, -1)
 
     def logmap(self, x: Tensor, y: Tensor) -> Tensor:
         X = torch.einsum(
             "...ij, ...jk -> ...ik",
-            x.transpose(-1, -2),
-            y,
+            x.unflatten(-1, (3, 3)).transpose(-1, -2),
+            y.unflatten(-1, (3, 3)),
         )
         trace = torch.einsum("...ii -> ...", X)
         argacos = (trace - 1.0) / 2.0
@@ -110,7 +110,7 @@ class SO3(Manifold):
         return result
 
     def projx(self, x: Tensor) -> Tensor:
-        return get_rot_mat_from_6d(x.flatten(-2, -1)[..., :6], eps=self.EPS[x.dtype])
+        return get_rot_mat_from_6d(x[..., :6], eps=self.EPS[x.dtype]).flatten(-2, -1)
 
     def proju(self, x: Tensor, u: Tensor) -> Tensor:
         return u

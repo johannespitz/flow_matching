@@ -125,7 +125,7 @@ print_every = 1000
 manifold = Composite([Sphere()] * trajectory_length)
 if DEBUG_ORIG:
     manifold = Sphere()
-dim = 4
+dim = 9
 hidden_dim = 512
 
 # velocity field model init

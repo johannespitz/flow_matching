@@ -39,6 +39,8 @@ def geodesic(
         """
         tangent_vecs = torch.einsum("i,...k->...ik", t, shooting_tangent_vec)
         points_at_time_t = manifold.expmap(start_point.unsqueeze(-2), tangent_vecs)
+        # tangent_vecs = shooting_tangent_vec * t
+        # points_at_time_t = manifold.expmap(start_point.unsqueeze(-3), tangent_vecs)
 
         return points_at_time_t
 
