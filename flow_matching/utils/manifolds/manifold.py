@@ -6,6 +6,7 @@
 
 import abc
 
+import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -91,3 +92,47 @@ class Euclidean(Manifold):
 
     def proju(self, x: Tensor, u: Tensor) -> Tensor:
         return u
+
+
+class Composite(Manifold):
+    """A composite manifold that combines multiple manifolds."""
+
+    def __init__(self, manifolds: list[Manifold]):
+        super().__init__()
+        self.manifolds = nn.ModuleList(manifolds)
+
+    def expmap(self, x: Tensor, u: Tensor) -> Tensor:
+        """Computes the exponential map for each manifold in the composite."""
+        return torch.stack(
+            [
+                manifold.expmap(x_i, u_i)
+                for manifold, x_i, u_i in zip(self.manifolds, x, u)
+            ],
+            dim=0,
+        )
+
+    def logmap(self, x: Tensor, y: Tensor) -> Tensor:
+        """Computes the logarithmic map for each manifold in the composite."""
+        return torch.stack(
+            [
+                manifold.logmap(x_i, y_i)
+                for manifold, x_i, y_i in zip(self.manifolds, x, y)
+            ],
+            dim=0,
+        )
+
+    def projx(self, x: Tensor) -> Tensor:
+        """Projects each point onto the corresponding manifold."""
+        return torch.stack(
+            [manifold.projx(x_i) for manifold, x_i in zip(self.manifolds, x)], dim=0
+        )
+
+    def proju(self, x: Tensor, u: Tensor) -> Tensor:
+        """Projects each vector onto the tangent space of the corresponding manifold."""
+        return torch.stack(
+            [
+                manifold.proju(x_i, u_i)
+                for manifold, x_i, u_i in zip(self.manifolds, x, u)
+            ],
+            dim=0,
+        )

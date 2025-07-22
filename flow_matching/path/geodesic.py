@@ -98,3 +98,25 @@ class GeodesicProbPath(ProbPath):
         dx_t = dx_t.reshape_as(x_1)
 
         return PathSample(x_t=x_t, dx_t=dx_t, x_1=x_1, x_0=x_0, t=t)
+
+
+class CompositeGeodesicProbPath(GeodesicProbPath):
+    def sample(self, x_0: Tensor, x_1: Tensor, t: Tensor) -> PathSample:
+
+        self.assert_sample_shape(x_0=x_0, x_1=x_1, t=t)
+        t = expand_tensor_like(input_tensor=t, expand_to=x_1[:, 0, 0:1]).clone()
+
+        def cond_u(x_0, x_1, t):
+            path = geodesic(self.manifold, x_0, x_1)
+            x_t, dx_t = jvp(
+                lambda t: path(self.scheduler(t).alpha_t),
+                (t,),
+                (torch.ones_like(t).to(t),),
+            )
+            return x_t, dx_t
+
+        x_t, dx_t = vmap(cond_u)(x_0, x_1, t)
+        x_t = x_t.reshape_as(x_1)
+        dx_t = dx_t.reshape_as(x_1)
+
+        return PathSample(x_t=x_t, dx_t=dx_t, x_1=x_1, x_0=x_0, t=t)
