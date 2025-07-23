@@ -9,7 +9,7 @@ from flow_matching.solver import RiemannianODESolver
 from flow_matching.utils import ModelWrapper
 from flow_matching.utils.manifolds import SO3
 
-from my_circles.data import inf_gt_gen, inf_noise_gen, plot_orientations
+from my_circles.data import inf_gt_gen, inf_joint_gen, inf_noise_gen, plot_orientations
 
 from torch import nn, Tensor
 
@@ -108,7 +108,7 @@ class MLP(nn.Module):
 # training arguments
 lr = 0.001
 batch_size = 1024  # 4096
-iterations = 10001  # 5001
+iterations = 5001  # 5001
 # iterations = 1
 print_every = 100
 manifold = SO3()
@@ -135,6 +135,10 @@ for i in range(iterations):
 
     x_1 = inf_gt_gen(batch_size=batch_size, length=trajectory_length).to(device)
     x_0 = inf_noise_gen(batch_size=batch_size, length=trajectory_length).to(device)
+
+    x_0, x_1 = inf_joint_gen(batch_size=batch_size, length=trajectory_length)
+    x_0.to(device)
+    x_1.to(device)
 
     # sample time (user's responsibility)
     t = torch.rand(batch_size).to(device)
@@ -188,6 +192,8 @@ T = T.to(device=device)
 
 # initial conditions
 x_init = inf_noise_gen(batch_size=batch_size, length=trajectory_length).to(device)
+gt_samples = inf_gt_gen(batch_size=batch_size, length=trajectory_length)
+x_init, gt_samples = inf_joint_gen(batch_size=batch_size, length=trajectory_length)
 
 solver = RiemannianODESolver(
     velocity_model=wrapped_vf, manifold=manifold
@@ -208,8 +214,6 @@ from scipy.spatial.transform import Rotation
 
 # plt.show()
 
-
-gt_samples = inf_gt_gen(batch_size=batch_size, length=trajectory_length)
 
 samples = torch.cat([sol, gt_samples[None]], dim=0).numpy()
 

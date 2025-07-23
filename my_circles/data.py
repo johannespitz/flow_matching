@@ -37,6 +37,43 @@ def inf_noise_gen(batch_size=20, length=20):
     )
 
 
+def inf_joint_gen(batch_size=20, length=20):
+    starts = Rotation.random(batch_size)
+    goals = Rotation.random(batch_size)
+
+    delta = starts.inv() * goals
+
+    # intermetidate = [starts + (i / length) * delta for i in range(length + 1)]
+
+    x_1 = torch.stack(
+        [
+            torch.tensor(
+                (starts * delta ** (i / (length - 1))).as_matrix(), dtype=torch.float32
+            ).flatten(-2, -1)
+            for i in range(length)
+        ],
+        dim=1,
+    )
+
+    rots = Rotation.random(batch_size * (length - 2))
+    x_0 = torch.cat(
+        [
+            torch.tensor(starts.as_matrix(), dtype=torch.float32).flatten(-2, -1)[
+                :, None
+            ],
+            torch.tensor(rots.as_matrix(), dtype=torch.float32).reshape(
+                batch_size, (length - 2), 9
+            ),
+            torch.tensor(goals.as_matrix(), dtype=torch.float32).flatten(-2, -1)[
+                :, None
+            ],
+        ],
+        dim=1,
+    )
+
+    return x_0, x_1
+
+
 def plot_orientations(orientations, ax=None, offset=0.001, type="quaternion"):
     # very small such that the axis scaling is not affected
 
