@@ -19,7 +19,9 @@ def inf_gt_gen(batch_size=20, length=20):
 
     out = torch.stack(
         [
-            torch.tensor((starts * delta ** (i / (length - 1))).as_quat())
+            torch.tensor(
+                (starts * delta ** (i / (length - 1))).as_matrix(), dtype=torch.float32
+            ).flatten(-2, -1)
             for i in range(length)
         ],
         dim=1,
@@ -30,10 +32,12 @@ def inf_gt_gen(batch_size=20, length=20):
 
 def inf_noise_gen(batch_size=20, length=20):
     rots = Rotation.random(batch_size * length)
-    return torch.tensor(rots.as_quat()).view(batch_size, length, 4)
+    return torch.tensor(rots.as_matrix(), dtype=torch.float32).reshape(
+        batch_size, length, 9
+    )
 
 
-def plot_orientations(orientations, ax=None, offset=0.001):
+def plot_orientations(orientations, ax=None, offset=0.001, type="quaternion"):
     # very small such that the axis scaling is not affected
 
     if ax is None:
@@ -45,7 +49,10 @@ def plot_orientations(orientations, ax=None, offset=0.001):
             linewidth = 2.0
         else:
             linewidth = 0.5
-        r = Rotation.from_quat(orientation)
+        if type == "quaternion":
+            r = Rotation.from_quat(orientation)
+        elif type == "matrix":
+            r = Rotation.from_matrix(orientation.reshape(-1, 3, 3))[0]
         length = 0.05
         x, y, z = r.apply([1, 0, 0]), r.apply([0, 1, 0]), r.apply([0, 0, 1])
         for axis, color in zip([x, y, z], ["r", "g", "b"]):

@@ -97,6 +97,9 @@ class GeodesicProbPath(ProbPath):
         x_t = x_t.reshape_as(x_1)
         dx_t = dx_t.reshape_as(x_1)
 
+        # dx_t = self.manifold.logmap(x_0, x_1)
+        # x_t = self.manifold.expmap(x_0, dx_t * self.scheduler(t).alpha_t)
+
         return PathSample(x_t=x_t, dx_t=dx_t, x_1=x_1, x_0=x_0, t=t)
 
 
@@ -130,7 +133,8 @@ class SO3ProbPath(ProbPath):
     def sample(self, x_0: Tensor, x_1: Tensor, t: Tensor) -> PathSample:
 
         self.assert_sample_shape(x_0=x_0, x_1=x_1, t=t)
-        t = expand_tensor_like(input_tensor=t, expand_to=x_1[:, 0:1]).clone()
+        # t = expand_tensor_like(input_tensor=t, expand_to=x_1[:, 0:1]).clone()
+        t = t[:, None, None].clone()
 
         shooting_tangent_vec = self.manifold.logmap(x_0, x_1)
 

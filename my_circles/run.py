@@ -3,11 +3,11 @@ import time
 import torch
 
 # flow_matching
-from flow_matching.path import CompositeGeodesicProbPath, GeodesicProbPath
+from flow_matching.path import SO3ProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import RiemannianODESolver
 from flow_matching.utils import ModelWrapper
-from flow_matching.utils.manifolds import Composite, Manifold, Sphere
+from flow_matching.utils.manifolds import SO3
 
 from my_circles.data import inf_gt_gen, inf_noise_gen, plot_orientations
 
@@ -69,12 +69,15 @@ class MLP(nn.Module):
         input_dim: int = 2,
         time_dim: int = 1,
         hidden_dim: int = 128,
+        output_dim: int = None,
     ):
         super().__init__()
 
         self.input_dim = input_dim
         self.time_dim = time_dim
         self.hidden_dim = hidden_dim
+        if output_dim is None:
+            output_dim = input_dim
 
         self.input_layer = nn.Linear(input_dim + time_dim, hidden_dim)
 
@@ -86,11 +89,11 @@ class MLP(nn.Module):
             Swish(),
             nn.Linear(hidden_dim, hidden_dim),
             Swish(),
-            nn.Linear(hidden_dim, input_dim),
+            nn.Linear(hidden_dim, output_dim),
         )
 
     def forward(self, x: Tensor, t: Tensor) -> Tensor:
-        sz = x.size()
+        sz = x.shape[:-1]
         x = x.reshape(-1, self.input_dim)
         t = t.reshape(-1, self.time_dim).float()
 
@@ -99,50 +102,29 @@ class MLP(nn.Module):
         h = self.input_layer(h)
         output = self.main(h)
 
-        return output.reshape(*sz)
-
-
-class ProjectToTangent(nn.Module):
-    """Projects a vector field onto the tangent plane at the input."""
-
-    def __init__(self, vecfield: nn.Module, manifold: Manifold):
-        super().__init__()
-        self.vecfield = vecfield
-        self.manifold = manifold
-
-    def forward(self, x: Tensor, t: Tensor) -> Tensor:
-        x = self.manifold.projx(x)
-        v = self.vecfield(x, t)
-        v = self.manifold.proju(x, v)
-        return v
+        return output.reshape(*sz, -1)
 
 
 # training arguments
 lr = 0.001
 batch_size = 1024  # 4096
-iterations = 5  # 5001
-print_every = 1000
-manifold = Composite([Sphere()] * trajectory_length)
-if DEBUG_ORIG:
-    manifold = Sphere()
-dim = 9
+iterations = 10001  # 5001
+# iterations = 1
+print_every = 100
+manifold = SO3()
 hidden_dim = 512
 
 # velocity field model init
-vf = ProjectToTangent(  # Ensures we can just use Euclidean divergence.
-    MLP(  # Vector field in the ambient space.
-        input_dim=dim,
-        hidden_dim=hidden_dim,
-    ),
-    manifold=manifold,
+vf = MLP(
+    input_dim=9 * trajectory_length,
+    hidden_dim=hidden_dim,
+    output_dim=3 * trajectory_length,
 )
+
 vf.to(device)
 
 # instantiate an affine path object
-path = CompositeGeodesicProbPath(scheduler=CondOTScheduler(), manifold=manifold)
-if DEBUG_ORIG:
-    path = GeodesicProbPath(scheduler=CondOTScheduler(), manifold=manifold)
-
+path = SO3ProbPath(scheduler=CondOTScheduler())
 # init optimizer
 optim = torch.optim.Adam(vf.parameters(), lr=lr)
 
@@ -154,15 +136,8 @@ for i in range(iterations):
     x_1 = inf_gt_gen(batch_size=batch_size, length=trajectory_length).to(device)
     x_0 = inf_noise_gen(batch_size=batch_size, length=trajectory_length).to(device)
 
-    if DEBUG_ORIG:
-        # sample data (user's responsibility): in this case, (X_0,X_1) ~ pi(X_0,X_1) = N(X_0|0,I)q(X_1)
-        x_1 = inf_train_gen(batch_size=batch_size, device=device)  # sample data
-        x_0 = torch.randn_like(x_1).to(device)
-        x_1 = wrap(manifold, x_1)
-        x_0 = wrap(manifold, x_0)
-
     # sample time (user's responsibility)
-    t = torch.rand(x_1.shape[0]).to(device)
+    t = torch.rand(batch_size).to(device)
 
     # Use GeodesicProbPath to generate trajectory sample
     # test_x0 = x_0.clone()[:20]
@@ -226,4 +201,38 @@ sol = solver.sample(
     verbose=True,
 )
 
-plot_orientations(sol)
+import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation
+
+# plot_orientations(sol[-1, 0], type="matrix")
+
+# plt.show()
+
+
+gt_samples = inf_gt_gen(batch_size=batch_size, length=trajectory_length)
+
+samples = torch.cat([sol, gt_samples[None]], dim=0).numpy()
+
+
+for j in range(batch_size):
+    _, axs = plt.subplots(1, N + 1, figsize=(20, 3.2), subplot_kw={"projection": "3d"})
+    for i in range(N + 1):
+
+        # plot_orientations(samples[i], axs[i], offset=0.0)
+
+        plot_orientations(
+            Rotation.from_matrix(samples[i, j].reshape(-1, 3, 3)).as_quat(),
+            axs[i],
+            offset=0.0,
+        )
+
+        # Set the aspect ratio to equal for better visualization of a sphere
+        axs[i].set_box_aspect([1, 1, 1])
+        axs[i].view_init(elev=130, azim=0)
+        axs[i].axis("off")
+
+        print(i)
+
+    plt.tight_layout()
+    plt.show()
+    plt.close()
