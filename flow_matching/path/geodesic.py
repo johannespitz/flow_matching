@@ -134,7 +134,7 @@ class SO3ProbPath(ProbPath):
 
         shooting_tangent_vec = self.manifold.logmap(x_0, x_1)
 
-        dx_t = shooting_tangent_vec * t
-        x_t = self.manifold.expmap(x_0, dx_t)
+        dx_t = shooting_tangent_vec
+        x_t = self.manifold.expmap(x_0, dx_t * self.scheduler(t).alpha_t)
 
         return PathSample(x_t=x_t, dx_t=dx_t, x_1=x_1, x_0=x_0, t=t)
